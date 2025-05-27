@@ -29,7 +29,7 @@ function handleCellClick(e) {
 
   const col = parseInt(e.target.dataset.col);
   makeMove(col, 'human');
-  if (!gameOver && gameMode !== 'human-first') {
+  if (!gameOver && (gameMode === 'ai-first' || gameMode === 'human-first')) {
     setTimeout(() => aiMove('ai'), 300);
   }
 }
