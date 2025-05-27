@@ -6,17 +6,13 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="menu">
-    <button onclick="startGame('AI')">First AI</button>
-    <button onclick="startGame('Human')">First Human</button>
-    <button onclick="startGame('AIVSAI')">AI vs AI</button>
+  <h1>Connect 5</h1>
+  <div id="board"></div>
+  <div class="buttons">
+    <button onclick="startGame('human-first')">من اول</button>
+    <button onclick="startGame('ai-first')">AI اول</button>
+    <button onclick="startGame('ai-vs-ai')">AI vs AI</button>
   </div>
-
-  <div id="game">
-    <div id="board"></div>
-    <div id="message"></div>
-  </div>
-
   <script src="game.js"></script>
 </body>
 </html>
