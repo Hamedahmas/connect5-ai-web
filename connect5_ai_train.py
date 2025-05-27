@@ -1,135 +1,117 @@
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
 import random
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.optimizers import Adam
 import os
+import json
 
-ROWS = 7
-COLS = 9
+ROWS, COLS = 7, 9
 WIN_LENGTH = 5
+MODEL_FILE = 'connect5_model.h5'
+DATA_FILE = 'training_data.json'
 
-class Connect5Env:
-    def __init__(self):
-        self.board = np.zeros((ROWS, COLS), dtype=int)
-        self.current_player = 1  # 1 or -1
+def create_model():
+    model = Sequential([
+        Flatten(input_shape=(ROWS, COLS, 2)),
+        Dense(128, activation='relu'),
+        Dense(64, activation='relu'),
+        Dense(COLS, activation='softmax')
+    ])
+    model.compile(optimizer=Adam(0.001), loss='categorical_crossentropy')
+    return model
 
-    def reset(self):
-        self.board.fill(0)
-        self.current_player = 1
-        return self.board.copy()
+def encode_board(board, player):
+    human_board = (board == 1).astype(int)
+    ai_board = (board == 2).astype(int)
+    return np.stack([human_board, ai_board], axis=-1)
 
-    def available_moves(self):
-        return [c for c in range(COLS) if self.board[0][c] == 0]
+def simulate_random_game():
+    board = np.zeros((ROWS, COLS), dtype=int)
+    states = []
+    current_player = 1  # 1: human, 2: ai
 
-    def step(self, action):
-        for r in reversed(range(ROWS)):
-            if self.board[r][action] == 0:
-                self.board[r][action] = self.current_player
+    for _ in range(ROWS * COLS):
+        available_cols = [c for c in range(COLS) if board[0][c] == 0]
+        if not available_cols:
+            break
+
+        col = random.choice(available_cols)
+        for row in reversed(range(ROWS)):
+            if board[row][col] == 0:
+                board[row][col] = current_player
                 break
 
-        done = self.check_win(self.current_player)
-        reward = 1 if done else 0
-        self.current_player *= -1
-        return self.board.copy(), reward, done
+        state = encode_board(board.copy(), current_player)
+        states.append((state, col))
 
-    def check_win(self, player):
-        def check_dir(dr, dc):
-            for r in range(ROWS):
-                for c in range(COLS):
-                    try:
-                        if all(self.board[r + dr * i][c + dc * i] == player for i in range(WIN_LENGTH)):
-                            return True
-                    except IndexError:
-                        continue
-            return False
-        return check_dir(1, 0) or check_dir(0, 1) or check_dir(1, 1) or check_dir(1, -1)
+        if check_win(board, current_player):
+            winner = current_player
+            break
+        current_player = 3 - current_player
+    else:
+        winner = 0  # Draw
 
-class DQN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(ROWS * COLS, 128),
-            nn.ReLU(),
-            nn.Linear(128, COLS)
-        )
+    return states, winner
 
-    def forward(self, x):
-        return self.fc(x)
+def check_win(board, player):
+    for row in range(ROWS):
+        for col in range(COLS):
+            if check_direction(board, row, col, player, 0, 1) or \
+               check_direction(board, row, col, player, 1, 0) or \
+               check_direction(board, row, col, player, 1, 1) or \
+               check_direction(board, row, col, player, 1, -1):
+                return True
+    return False
 
-class Agent:
-    def __init__(self):
-        self.model = DQN()
-        self.target = DQN()
-        self.target.load_state_dict(self.model.state_dict())
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        self.memory = []
-        self.batch_size = 64
-        self.gamma = 0.99
+def check_direction(board, row, col, player, drow, dcol):
+    count = 0
+    for i in range(WIN_LENGTH):
+        r, c = row + i * drow, col + i * dcol
+        if 0 <= r < ROWS and 0 <= c < COLS and board[r][c] == player:
+            count += 1
+        else:
+            break
+    return count == WIN_LENGTH
 
-    def remember(self, s, a, r, s2, done):
-        self.memory.append((s, a, r, s2, done))
-        if len(self.memory) > 10000:
-            self.memory.pop(0)
+def collect_training_data(games=100):
+    data = []
+    for _ in range(games):
+        states, winner = simulate_random_game()
+        if winner == 2:  # فقط بازی‌هایی که AI برده
+            for state, col in states:
+                label = np.zeros(COLS)
+                label[col] = 1
+                data.append((state, label))
+    return data
 
-    def act(self, state, epsilon):
-        if random.random() < epsilon:
-            return random.choice([c for c in range(COLS) if state[0][c] == 0])
-        with torch.no_grad():
-            state = torch.FloatTensor(state).unsqueeze(0)
-            q_values = self.model(state)
-            return int(torch.argmax(q_values))
+def save_data(data, path):
+    with open(path, 'w') as f:
+        json.dump([
+            (s.tolist(), l.tolist()) for s, l in data
+        ], f)
 
-    def train(self):
-        if len(self.memory) < self.batch_size:
-            return
+def load_data(path):
+    with open(path, 'r') as f:
+        raw = json.load(f)
+        return [(np.array(s), np.array(l)) for s, l in raw]
 
-        batch = random.sample(self.memory, self.batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+def train_model(model, data):
+    X = np.array([x[0] for x in data])
+    y = np.array([x[1] for x in data])
+    model.fit(X, y, epochs=10, batch_size=16)
+    return model
 
-        states = torch.FloatTensor(states)
-        next_states = torch.FloatTensor(next_states)
-        rewards = torch.FloatTensor(rewards)
-        dones = torch.BoolTensor(dones)
-
-        q_values = self.model(states)
-        next_q_values = self.target(next_states)
-
-        targets = q_values.clone()
-        for i in range(self.batch_size):
-            targets[i][actions[i]] = rewards[i] + self.gamma * torch.max(next_q_values[i]) * (~dones[i])
-
-        loss = nn.MSELoss()(q_values, targets)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-    def update_target(self):
-        self.target.load_state_dict(self.model.state_dict())
-
-def train_agent(episodes=10000):
-    env = Connect5Env()
-    agent = Agent()
-    epsilon = 1.0
-
-    for ep in range(episodes):
-        state = env.reset()
-        done = False
-        while not done:
-            action = agent.act(state, epsilon)
-            next_state, reward, done = env.step(action)
-            agent.remember(state, action, reward, next_state, done)
-            state = next_state
-            agent.train()
-        agent.update_target()
-        epsilon *= 0.995
-        epsilon = max(0.1, epsilon)
-        if ep % 500 == 0:
-            print(f"Episode {ep}, epsilon {epsilon:.2f}")
-
-    torch.save(agent.model.state_dict(), "connect5_ai.pth")
-    print("Model saved to connect5_ai.pth")
-
+# --- Main Execution ---
 if __name__ == "__main__":
-    train_agent()
+    model = create_model() if not os.path.exists(MODEL_FILE) else load_model(MODEL_FILE)
+
+    if not os.path.exists(DATA_FILE):
+        data = collect_training_data(100)
+        save_data(data, DATA_FILE)
+    else:
+        data = load_data(DATA_FILE)
+
+    model = train_model(model, data)
+    model.save(MODEL_FILE)
+    print("✅ مدل ذخیره شد: ", MODEL_FILE)
