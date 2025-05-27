@@ -28,6 +28,8 @@ function handleCellClick(e) {
   if (gameOver || currentPlayer !== 'human') return;
 
   const col = parseInt(e.target.dataset.col);
+  if (isNaN(col)) return;
+
   makeMove(col, 'human');
   if (!gameOver) {
     setTimeout(() => aiMove(), 300);
@@ -65,8 +67,8 @@ function aiMove() {
     return;
   }
 
-  const randomCol = availableCols[Math.floor(Math.random() * availableCols.length)];
-  makeMove(randomCol, 'ai');
+  const col = availableCols[Math.floor(Math.random() * availableCols.length)];
+  makeMove(col, 'ai');
 }
 
 function checkWin(row, col, player) {
@@ -80,11 +82,16 @@ function checkWin(row, col, player) {
 
 function checkDirection(row, col, player, rowDir, colDir) {
   let count = 1;
+
   for (let dir of [-1, 1]) {
     let r = row + dir * rowDir;
     let c = col + dir * colDir;
 
-    while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+    while (
+      r >= 0 && r < ROWS &&
+      c >= 0 && c < COLS &&
+      board[r][c] === player
+    ) {
       count++;
       r += dir * rowDir;
       c += dir * colDir;
@@ -104,11 +111,8 @@ function updateUI() {
     const value = board[row][col];
     cell.classList.remove('human', 'ai');
 
-    if (value === 'human') {
-      cell.classList.add('human');
-    } else if (value === 'ai') {
-      cell.classList.add('ai');
-    }
+    if (value === 'human') cell.classList.add('human');
+    if (value === 'ai') cell.classList.add('ai');
   });
 }
 
@@ -119,7 +123,7 @@ function startGame(mode) {
 
   if (mode === 'ai-first') {
     currentPlayer = 'ai';
-    setTimeout(() => aiMove(), 500);
+    setTimeout(() => aiMove(), 300);
   } else {
     currentPlayer = 'human';
   }
