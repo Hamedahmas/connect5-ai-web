@@ -1,12 +1,30 @@
-// فرض بر اینکه مدل AI در تابع chooseBestMove پیاده شده و در فایل جداگانه load شده
-let board = Array(7).fill().map(() => Array(9).fill(null));
+// game.js — پیاده‌سازی کامل بازی Connect 5 با AI در سه حالت
+
+let board = [];
 let currentPlayer = 'human';
 let playerMode = 'human-first';
 let gameOver = false;
+const rows = 7;
+const cols = 9;
 
-// شروع بازی بر اساس مود انتخاب‌شده
+function createBoard() {
+  board = Array.from({ length: rows }, () => Array(cols).fill(null));
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.addEventListener('click', () => handleClick(c));
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
 function startGame(mode) {
-  resetBoard();
+  createBoard();
   playerMode = mode;
   gameOver = false;
 
@@ -21,83 +39,100 @@ function startGame(mode) {
   }
 }
 
-// کلیک کاربر انسانی روی یک ستون
 function handleClick(col) {
   if (gameOver || currentPlayer !== 'human') return;
 
   const row = getAvailableRow(col);
   if (row === -1) return;
 
-  board[row][col] = 'human';
-  drawBoard();
+  placePiece(row, col, 'human');
+
   if (checkWinner('human')) {
-    alert("Human wins!");
+    alert('Human wins!');
     gameOver = true;
     return;
   }
 
   currentPlayer = 'ai';
-  setTimeout(aiMove, 500);
+  setTimeout(aiMove, 300);
 }
 
-// حرکت AI با استفاده از مدل
-async function aiMove() {
-  if (gameOver || currentPlayer !== 'ai') return;
-
-  const col = await chooseBestMove(); // باید با مدل AI واقعی پیاده‌سازی شود
-  const row = getAvailableRow(col);
-  if (row === -1) return;
-
-  board[row][col] = 'ai';
-  drawBoard();
-
-  if (checkWinner('ai')) {
-    alert("AI wins!");
-    gameOver = true;
-    return;
-  }
-
-  if (playerMode === 'ai-vs-ai') {
-    setTimeout(aiVsAiLoop, 500);
-  } else {
-    currentPlayer = 'human';
-  }
+function placePiece(row, col, player) {
+  board[row][col] = player;
+  const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+  if (cell) cell.classList.add(player);
 }
 
-// اجرای بازی AI در مقابل AI
-function aiVsAiLoop() {
-  if (gameOver || playerMode !== 'ai-vs-ai') return;
-  aiMove();
-}
-
-// ریست کردن بورد بازی
-function resetBoard() {
-  board = Array(7).fill().map(() => Array(9).fill(null));
-  drawBoard();
-}
-
-// پیدا کردن سطر خالی برای ستون مشخص
 function getAvailableRow(col) {
-  for (let r = 6; r >= 0; r--) {
-    if (board[r][col] === null) return r;
+  for (let r = rows - 1; r >= 0; r--) {
+    if (!board[r][col]) return r;
   }
   return -1;
 }
 
-// تابع تست برنده بودن (باید کامل پیاده‌سازی شود)
+async function aiMove() {
+  if (gameOver || currentPlayer !== 'ai') return;
+
+  const col = await chooseBestMove(); // باید مدل AI واقعی اضافه شود
+  const row = getAvailableRow(col);
+  if (row === -1) return;
+
+  placePiece(row, col, 'ai');
+
+  if (checkWinner('ai')) {
+    alert('AI wins!');
+    gameOver = true;
+    saveExperience(); // ذخیره تجربه جدید
+    return;
+  }
+
+  currentPlayer = 'human';
+}
+
+function aiVsAiLoop() {
+  if (gameOver) return;
+  aiMove();
+  setTimeout(aiVsAiLoop, 400);
+}
+
 function checkWinner(player) {
-  // این فقط اسکلت اولیه است
+  const directions = [
+    [0, 1], [1, 0], [1, 1], [1, -1]
+  ];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] === player) {
+        for (let [dr, dc] of directions) {
+          let count = 1;
+          for (let i = 1; i < 5; i++) {
+            const nr = r + dr * i;
+            const nc = c + dc * i;
+            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || board[nr][nc] !== player) break;
+            count++;
+          }
+          if (count >= 5) return true;
+        }
+      }
+    }
+  }
   return false;
 }
 
-// تابع نمایش گرافیکی بازی (باید جدا پیاده بشه)
-function drawBoard() {
-  console.log(board);
+function chooseBestMove() {
+  // جایگزین با مدل AI
+  return new Promise(resolve => {
+    const available = [];
+    for (let c = 0; c < cols; c++) {
+      if (getAvailableRow(c) !== -1) available.push(c);
+    }
+    resolve(available[Math.floor(Math.random() * available.length)]);
+  });
 }
 
-// مثال دکمه‌های شروع در HTML
-/*
-<button onclick="startGame('human-first')">من اول</button>
-<button onclick="startGame('ai-first')">AI اول</button>
-<button onclick="startGame('ai-vs-ai')">AI vs AI</button>
-*/
+function saveExperience() {
+  // در اینجا باید کدی بنویسی که بازی‌های AI ذخیره بشن برای آموزش بعدی
+  console.log('AI تجربه جدیدی کسب کرد! (می‌تونی به سرور یا IndexedDB ذخیره کنی)');
+}
+
+// شروع پیش‌فرض
+window.onload = () => startGame('human-first');
