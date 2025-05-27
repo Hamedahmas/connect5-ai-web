@@ -1,19 +1,15 @@
-﻿from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import os
+import json
 
 app = Flask(__name__)
 
-# مسیر فایل مدل
 MODEL_PATH = "connect5_model.h5"
+DATA_PATH = "connect5_data.jsonl"
 
-# بررسی وجود مدل
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
-
-# لود مدل
 model = load_model(MODEL_PATH)
 
 ROWS = 7
@@ -25,33 +21,36 @@ def home():
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    try:
-        data = request.get_json(force=True)
+    data = request.get_json()
 
-        if "board" not in data:
-            return jsonify({"error": "Missing 'board' key"}), 400
+    if "board" not in data:
+        return jsonify({"error": "Missing 'board' key"}), 400
 
-        board = data["board"]
+    board = data["board"]
+    if len(board) != ROWS or any(len(row) != COLS for row in board):
+        return jsonify({"error": "Invalid board size"}), 400
 
-        if len(board) != ROWS or any(len(row) != COLS for row in board):
-            return jsonify({"error": "Invalid board size"}), 400
+    board_array = np.array(board).flatten().reshape(1, -1)
+    predictions = model.predict(board_array)[0]
 
-        # تبدیل به آرایه numpy
-        board_array = np.array(board).flatten().reshape(1, -1)
-        predictions = model.predict(board_array, verbose=0)[0]
+    valid_moves = [i for i in range(COLS) if board[0][i] == 0]
+    if not valid_moves:
+        return jsonify({"move": -1})  # مساوی
 
-        # فقط ستون‌هایی که پر نشده‌اند
-        valid_moves = [i for i in range(COLS) if board[0][i] == 0]
-        if not valid_moves:
-            return jsonify({"move": -1})  # مساوی
+    best_move = max(valid_moves, key=lambda col: predictions[col])
 
-        # انتخاب بهترین حرکت از بین حرکات معتبر
-        best_move = max(valid_moves, key=lambda col: predictions[col])
+    # 🧠 ذخیره اطلاعات بازی
+    save_game_data(board, best_move)
 
-        return jsonify({"move": int(best_move)})
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"move": int(best_move)})
+
+def save_game_data(board, move):
+    data_point = {
+        "board": board,
+        "move": move
+    }
+    with open(DATA_PATH, "a") as f:
+        f.write(json.dumps(data_point) + "\n")
 
 if __name__ == "__main__":
     app.run(debug=True)
