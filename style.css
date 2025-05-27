@@ -1,0 +1,50 @@
+body {
+  background-color: #141124;
+  font-family: sans-serif;
+  color: white;
+  text-align: center;
+}
+
+#menu {
+  margin-top: 30px;
+}
+
+button {
+  margin: 10px;
+  padding: 15px 30px;
+  font-size: 18px;
+  background: #ddd;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(9, 60px);
+  grid-template-rows: repeat(7, 60px);
+  margin: 30px auto;
+  width: fit-content;
+  gap: 5px;
+}
+
+.cell {
+  width: 60px;
+  height: 60px;
+  background-color: #1d1b2e;
+  border-radius: 50%;
+  box-shadow: inset 0 0 10px #000;
+}
+
+.cell.red {
+  background: red;
+}
+
+.cell.yellow {
+  background: gold;
+}
+
+#message {
+  font-size: 24px;
+  margin-top: 20px;
+}
