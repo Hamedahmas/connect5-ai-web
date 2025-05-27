@@ -30,6 +30,9 @@ function handleCellClick(e) {
 
   const col = parseInt(e.target.dataset.col);
   makeMove(col, 'human');
+  if (!gameOver && gameMode !== 'human-first') {
+    setTimeout(() => aiMove(), 300);
+  }
 }
 
 function makeMove(col, player) {
@@ -44,7 +47,11 @@ function makeMove(col, player) {
         return;
       }
 
-      currentPlayer = player === 'human' ? 'ai' : 'human';
+      if (gameMode === 'ai-vs-ai') {
+        currentPlayer = 'ai';
+      } else {
+        currentPlayer = player === 'human' ? 'ai' : 'human';
+      }
       return;
     }
   }
@@ -67,6 +74,10 @@ function aiMove() {
 
   const randomCol = availableCols[Math.floor(Math.random() * availableCols.length)];
   makeMove(randomCol, 'ai');
+
+  if (gameMode === 'ai-vs-ai' && !gameOver) {
+    setTimeout(() => aiMove(), 300);
+  }
 }
 
 function checkWin(row, col, player) {
@@ -113,25 +124,23 @@ function updateUI() {
 }
 
 function startGame(mode) {
-  stopAiVsAi(); // اگه قبلاً فعال بوده، قطع کن
-
+  stopAiVsAi();
   gameMode = mode;
-  currentPlayer = (mode === 'ai-first' || mode === 'ai-vs-ai') ? 'ai' : 'human';
   gameOver = false;
   createBoard();
 
   if (mode === 'ai-vs-ai') {
-    aiVsAiInterval = setInterval(() => {
-      if (!gameOver) aiMove();
-    }, 400);
-  } else if (currentPlayer === 'ai') {
-    setTimeout(aiMove, 500);
+    currentPlayer = 'ai';
+    aiMove();
+  } else if (mode === 'ai-first') {
+    currentPlayer = 'ai';
+    setTimeout(() => aiMove(), 500);
+  } else {
+    currentPlayer = 'human';
   }
 }
 
 function stopAiVsAi() {
-  if (aiVsAiInterval) {
-    clearInterval(aiVsAiInterval);
-    aiVsAiInterval = null;
-  }
+  clearInterval(aiVsAiInterval);
+  aiVsAiInterval = null;
 }
