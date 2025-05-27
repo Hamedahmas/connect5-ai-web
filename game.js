@@ -5,6 +5,7 @@ let board = [];
 let currentPlayer = 'human';
 let gameMode = 'human-first';
 let gameOver = false;
+let aiVsAiInterval = null;
 
 function createBoard() {
   const boardElement = document.getElementById('board');
@@ -39,27 +40,19 @@ function makeMove(col, player) {
       if (checkWin(row, col, player)) {
         alert(`${player === 'human' ? 'شما' : 'AI'} برنده شد!`);
         gameOver = true;
+        stopAiVsAi();
         return;
       }
 
       currentPlayer = player === 'human' ? 'ai' : 'human';
-
-      if (!gameOver) {
-        if (gameMode === 'ai-first' || gameMode === 'human-first') {
-          if (currentPlayer === 'ai') {
-            setTimeout(aiMove, 500);
-          }
-        } else if (gameMode === 'ai-vs-ai') {
-          setTimeout(aiMove, 300);
-        }
-      }
-
       return;
     }
   }
 }
 
 function aiMove() {
+  if (gameOver) return;
+
   const availableCols = [];
   for (let col = 0; col < COLS; col++) {
     if (!board[0][col]) availableCols.push(col);
@@ -68,6 +61,7 @@ function aiMove() {
   if (availableCols.length === 0) {
     alert("مساوی شد!");
     gameOver = true;
+    stopAiVsAi();
     return;
   }
 
@@ -77,16 +71,15 @@ function aiMove() {
 
 function checkWin(row, col, player) {
   return (
-    checkDirection(row, col, player, 0, 1) ||  // افقی
-    checkDirection(row, col, player, 1, 0) ||  // عمودی
-    checkDirection(row, col, player, 1, 1) ||  // قطری \
-    checkDirection(row, col, player, 1, -1)    // قطری /
+    checkDirection(row, col, player, 0, 1) ||
+    checkDirection(row, col, player, 1, 0) ||
+    checkDirection(row, col, player, 1, 1) ||
+    checkDirection(row, col, player, 1, -1)
   );
 }
 
 function checkDirection(row, col, player, rowDir, colDir) {
   let count = 1;
-
   for (let dir of [-1, 1]) {
     let r = row + dir * rowDir;
     let c = col + dir * colDir;
@@ -120,12 +113,25 @@ function updateUI() {
 }
 
 function startGame(mode) {
+  stopAiVsAi(); // اگه قبلاً فعال بوده، قطع کن
+
   gameMode = mode;
   currentPlayer = (mode === 'ai-first' || mode === 'ai-vs-ai') ? 'ai' : 'human';
   gameOver = false;
   createBoard();
 
-  if (currentPlayer === 'ai') {
+  if (mode === 'ai-vs-ai') {
+    aiVsAiInterval = setInterval(() => {
+      if (!gameOver) aiMove();
+    }, 400);
+  } else if (currentPlayer === 'ai') {
     setTimeout(aiMove, 500);
+  }
+}
+
+function stopAiVsAi() {
+  if (aiVsAiInterval) {
+    clearInterval(aiVsAiInterval);
+    aiVsAiInterval = null;
   }
 }
