@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="fa">
 <head>
-  <meta charset="UTF-8">
-  <title>Connect 5 AI</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>بازی 5تایی</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>بازی ۵ تایی (Connect 5)</h1>
-  <div class="buttons">
-    <button onclick="startGame('human-first')">من شروع کنم</button>
-    <button onclick="startGame('ai-first')">AI شروع کنه</button>
-    <button onclick="startGame('ai-vs-ai')">AI vs AI</button>
+  <h1>بازی 5تایی</h1>
+  <div class="controls">
+    <button onclick="startGame('human-first')">شروع با انسان</button>
+    <button onclick="startGame('ai-first')">شروع با AI</button>
   </div>
   <div id="board"></div>
+
   <script src="game.js"></script>
 </body>
 </html>
