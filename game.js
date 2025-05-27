@@ -5,7 +5,6 @@ let board = [];
 let currentPlayer = 'human';
 let gameMode = 'human-first';
 let gameOver = false;
-let aiVsAiInterval = null;
 
 function createBoard() {
   const boardElement = document.getElementById('board');
@@ -31,7 +30,7 @@ function handleCellClick(e) {
   const col = parseInt(e.target.dataset.col);
   makeMove(col, 'human');
   if (!gameOver && gameMode !== 'human-first') {
-    setTimeout(() => aiMove(), 300);
+    setTimeout(() => aiMove('ai'), 300);
   }
 }
 
@@ -41,14 +40,13 @@ function makeMove(col, player) {
       board[row][col] = player;
       updateUI();
       if (checkWin(row, col, player)) {
-        alert(`${player === 'human' ? 'شما' : 'AI'} برنده شد!`);
+        alert(`${player === 'human' ? 'شما' : player === 'ai1' ? 'AI 1' : player === 'ai2' ? 'AI 2' : 'AI'} برنده شد!`);
         gameOver = true;
-        stopAiVsAi();
         return;
       }
 
       if (gameMode === 'ai-vs-ai') {
-        currentPlayer = 'ai';
+        currentPlayer = currentPlayer === 'ai1' ? 'ai2' : 'ai1';
       } else {
         currentPlayer = player === 'human' ? 'ai' : 'human';
       }
@@ -57,7 +55,7 @@ function makeMove(col, player) {
   }
 }
 
-function aiMove() {
+function aiMove(aiPlayer) {
   if (gameOver) return;
 
   const availableCols = [];
@@ -68,15 +66,14 @@ function aiMove() {
   if (availableCols.length === 0) {
     alert("مساوی شد!");
     gameOver = true;
-    stopAiVsAi();
     return;
   }
 
   const randomCol = availableCols[Math.floor(Math.random() * availableCols.length)];
-  makeMove(randomCol, 'ai');
+  makeMove(randomCol, aiPlayer);
 
   if (gameMode === 'ai-vs-ai' && !gameOver) {
-    setTimeout(() => aiMove(), 300);
+    setTimeout(() => aiMove(currentPlayer), 300);
   }
 }
 
@@ -113,34 +110,32 @@ function updateUI() {
     const row = parseInt(cell.dataset.row);
     const col = parseInt(cell.dataset.col);
     const value = board[row][col];
-    cell.classList.remove('human', 'ai');
+    cell.classList.remove('human', 'ai', 'ai1', 'ai2');
 
     if (value === 'human') {
       cell.classList.add('human');
     } else if (value === 'ai') {
       cell.classList.add('ai');
+    } else if (value === 'ai1') {
+      cell.classList.add('ai1');
+    } else if (value === 'ai2') {
+      cell.classList.add('ai2');
     }
   });
 }
 
 function startGame(mode) {
-  stopAiVsAi();
   gameMode = mode;
   gameOver = false;
   createBoard();
 
   if (mode === 'ai-vs-ai') {
-    currentPlayer = 'ai';
-    aiMove();
+    currentPlayer = 'ai1';
+    aiMove('ai1');
   } else if (mode === 'ai-first') {
     currentPlayer = 'ai';
-    setTimeout(() => aiMove(), 500);
+    setTimeout(() => aiMove('ai'), 500);
   } else {
     currentPlayer = 'human';
   }
-}
-
-function stopAiVsAi() {
-  clearInterval(aiVsAiInterval);
-  aiVsAiInterval = null;
 }
