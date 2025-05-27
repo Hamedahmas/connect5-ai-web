@@ -1,86 +1,126 @@
 const ROWS = 7;
 const COLS = 9;
+const WIN_LENGTH = 5;
 let board = [];
-let currentPlayer = 'red';
+let currentPlayer = 'human';
+let gameMode = 'human-first';
 let gameOver = false;
 
-function startGame(mode) {
-  document.getElementById("board").innerHTML = "";
-  document.getElementById("message").innerText = "";
-  board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
-  gameOver = false;
-  currentPlayer = (mode === 'Human') ? 'red' : 'yellow';
-  createBoard();
-
-  if (mode === 'AI') aiMove();
-  if (mode === 'AIVSAI') setInterval(() => {
-    if (!gameOver) aiMove();
-  }, 700);
-}
-
 function createBoard() {
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.dataset.row = r;
-      cell.dataset.col = c;
-      cell.onclick = () => handleClick(c);
-      document.getElementById("board").appendChild(cell);
+  const boardElement = document.getElementById('board');
+  boardElement.innerHTML = '';
+  board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+      boardElement.appendChild(cell);
     }
+  }
+
+  boardElement.addEventListener('click', handleCellClick);
+}
+
+function handleCellClick(e) {
+  if (gameOver || currentPlayer !== 'human') return;
+
+  const col = parseInt(e.target.dataset.col);
+  makeMove(col, 'human');
+  if (!gameOver) {
+    setTimeout(() => aiMove(), 300);
   }
 }
 
-function handleClick(col) {
-  if (gameOver) return;
-
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (!board[r][col]) {
-      board[r][col] = currentPlayer;
-      updateCell(r, col);
-      if (checkWinner(r, col)) {
-        document.getElementById("message").innerText = `${currentPlayer.toUpperCase()} won!`;
+function makeMove(col, player) {
+  for (let row = ROWS - 1; row >= 0; row--) {
+    if (!board[row][col]) {
+      board[row][col] = player;
+      updateUI();
+      if (checkWin(row, col, player)) {
+        alert(`${player === 'human' ? 'شما' : 'AI'} برنده شد!`);
         gameOver = true;
-      } else {
-        currentPlayer = currentPlayer === 'red' ? 'yellow' : 'red';
+        return;
       }
-      break;
+
+      currentPlayer = player === 'human' ? 'ai' : 'human';
+      return;
     }
   }
-}
-
-function updateCell(r, c) {
-  const index = r * COLS + c;
-  document.querySelectorAll(".cell")[index].classList.add(currentPlayer);
-}
-
-// فقط بررسی ساده برای تست اولیه (چک افقی/عمودی/قطری 5 تایی)
-function checkWinner(row, col) {
-  const directions = [
-    [0, 1], [1, 0], [1, 1], [1, -1]
-  ];
-  for (let [dr, dc] of directions) {
-    let count = 1;
-    for (let i = 1; i < 5; i++) {
-      const r = row + dr * i, c = col + dc * i;
-      if (r < 0 || r >= ROWS || c < 0 || c >= COLS || board[r][c] !== currentPlayer) break;
-      count++;
-    }
-    for (let i = 1; i < 5; i++) {
-      const r = row - dr * i, c = col - dc * i;
-      if (r < 0 || r >= ROWS || c < 0 || c >= COLS || board[r][c] !== currentPlayer) break;
-      count++;
-    }
-    if (count >= 5) return true;
-  }
-  return false;
 }
 
 function aiMove() {
   if (gameOver) return;
-  let col;
-  do {
-    col = Math.floor(Math.random() * COLS);
-  } while (board[0][col] !== null);
-  handleClick(col);
+
+  const availableCols = [];
+  for (let col = 0; col < COLS; col++) {
+    if (!board[0][col]) availableCols.push(col);
+  }
+
+  if (availableCols.length === 0) {
+    alert("مساوی شد!");
+    gameOver = true;
+    return;
+  }
+
+  const randomCol = availableCols[Math.floor(Math.random() * availableCols.length)];
+  makeMove(randomCol, 'ai');
+}
+
+function checkWin(row, col, player) {
+  return (
+    checkDirection(row, col, player, 0, 1) ||
+    checkDirection(row, col, player, 1, 0) ||
+    checkDirection(row, col, player, 1, 1) ||
+    checkDirection(row, col, player, 1, -1)
+  );
+}
+
+function checkDirection(row, col, player, rowDir, colDir) {
+  let count = 1;
+  for (let dir of [-1, 1]) {
+    let r = row + dir * rowDir;
+    let c = col + dir * colDir;
+
+    while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+      count++;
+      r += dir * rowDir;
+      c += dir * colDir;
+    }
+  }
+
+  return count >= WIN_LENGTH;
+}
+
+function updateUI() {
+  const boardElement = document.getElementById('board');
+  const cells = boardElement.querySelectorAll('.cell');
+
+  cells.forEach(cell => {
+    const row = parseInt(cell.dataset.row);
+    const col = parseInt(cell.dataset.col);
+    const value = board[row][col];
+    cell.classList.remove('human', 'ai');
+
+    if (value === 'human') {
+      cell.classList.add('human');
+    } else if (value === 'ai') {
+      cell.classList.add('ai');
+    }
+  });
+}
+
+function startGame(mode) {
+  gameMode = mode;
+  gameOver = false;
+  createBoard();
+
+  if (mode === 'ai-first') {
+    currentPlayer = 'ai';
+    setTimeout(() => aiMove(), 500);
+  } else {
+    currentPlayer = 'human';
+  }
 }
