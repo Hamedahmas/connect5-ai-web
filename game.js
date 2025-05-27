@@ -1,141 +1,103 @@
-const ROWS = 7;
-const COLS = 9;
-const WIN_LENGTH = 5;
-let board = [];
+// فرض بر اینکه مدل AI در تابع chooseBestMove پیاده شده و در فایل جداگانه load شده
+let board = Array(7).fill().map(() => Array(9).fill(null));
 let currentPlayer = 'human';
-let gameMode = 'human-first';
+let playerMode = 'human-first';
 let gameOver = false;
 
-function createBoard() {
-  const boardElement = document.getElementById('board');
-  boardElement.innerHTML = '';
-  board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+// شروع بازی بر اساس مود انتخاب‌شده
+function startGame(mode) {
+  resetBoard();
+  playerMode = mode;
+  gameOver = false;
 
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const cell = document.createElement('div');
-      cell.classList.add('cell');
-      cell.dataset.row = row;
-      cell.dataset.col = col;
-      boardElement.appendChild(cell);
-    }
-  }
-
-  boardElement.addEventListener('click', handleCellClick);
-}
-
-function handleCellClick(e) {
-  if (gameOver || currentPlayer !== 'human' || gameMode === 'ai-vs-ai') return;
-
-  const col = parseInt(e.target.dataset.col);
-  makeMove(col, 'human');
-  if (!gameOver && (gameMode === 'ai-first' || gameMode === 'human-first')) {
-    setTimeout(() => aiMove('ai'), 300);
+  if (mode === 'ai-first') {
+    currentPlayer = 'ai';
+    aiMove();
+  } else if (mode === 'human-first') {
+    currentPlayer = 'human';
+  } else if (mode === 'ai-vs-ai') {
+    currentPlayer = 'ai';
+    aiVsAiLoop();
   }
 }
 
-function makeMove(col, player) {
-  for (let row = ROWS - 1; row >= 0; row--) {
-    if (!board[row][col]) {
-      board[row][col] = player;
-      updateUI();
-      if (checkWin(row, col, player)) {
-        alert(`${player === 'human' ? 'شما' : player === 'ai1' ? 'AI 1' : player === 'ai2' ? 'AI 2' : 'AI'} برنده شد!`);
-        gameOver = true;
-        return;
-      }
+// کلیک کاربر انسانی روی یک ستون
+function handleClick(col) {
+  if (gameOver || currentPlayer !== 'human') return;
 
-      if (gameMode === 'ai-vs-ai') {
-        currentPlayer = currentPlayer === 'ai1' ? 'ai2' : 'ai1';
-      } else {
-        currentPlayer = player === 'human' ? 'ai' : 'human';
-      }
-      return;
-    }
-  }
-}
+  const row = getAvailableRow(col);
+  if (row === -1) return;
 
-function aiMove(aiPlayer) {
-  if (gameOver) return;
-
-  const availableCols = [];
-  for (let col = 0; col < COLS; col++) {
-    if (!board[0][col]) availableCols.push(col);
-  }
-
-  if (availableCols.length === 0) {
-    alert("مساوی شد!");
+  board[row][col] = 'human';
+  drawBoard();
+  if (checkWinner('human')) {
+    alert("Human wins!");
     gameOver = true;
     return;
   }
 
-  const randomCol = availableCols[Math.floor(Math.random() * availableCols.length)];
-  makeMove(randomCol, aiPlayer);
-
-  if (gameMode === 'ai-vs-ai' && !gameOver) {
-    setTimeout(() => aiMove(currentPlayer), 300);
-  }
+  currentPlayer = 'ai';
+  setTimeout(aiMove, 500);
 }
 
-function checkWin(row, col, player) {
-  return (
-    checkDirection(row, col, player, 0, 1) ||
-    checkDirection(row, col, player, 1, 0) ||
-    checkDirection(row, col, player, 1, 1) ||
-    checkDirection(row, col, player, 1, -1)
-  );
-}
+// حرکت AI با استفاده از مدل
+async function aiMove() {
+  if (gameOver || currentPlayer !== 'ai') return;
 
-function checkDirection(row, col, player, rowDir, colDir) {
-  let count = 1;
-  for (let dir of [-1, 1]) {
-    let r = row + dir * rowDir;
-    let c = col + dir * colDir;
+  const col = await chooseBestMove(); // باید با مدل AI واقعی پیاده‌سازی شود
+  const row = getAvailableRow(col);
+  if (row === -1) return;
 
-    while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
-      count++;
-      r += dir * rowDir;
-      c += dir * colDir;
-    }
+  board[row][col] = 'ai';
+  drawBoard();
+
+  if (checkWinner('ai')) {
+    alert("AI wins!");
+    gameOver = true;
+    return;
   }
 
-  return count >= WIN_LENGTH;
-}
-
-function updateUI() {
-  const boardElement = document.getElementById('board');
-  const cells = boardElement.querySelectorAll('.cell');
-
-  cells.forEach(cell => {
-    const row = parseInt(cell.dataset.row);
-    const col = parseInt(cell.dataset.col);
-    const value = board[row][col];
-    cell.classList.remove('human', 'ai', 'ai1', 'ai2');
-
-    if (value === 'human') {
-      cell.classList.add('human');
-    } else if (value === 'ai') {
-      cell.classList.add('ai');
-    } else if (value === 'ai1') {
-      cell.classList.add('ai1');
-    } else if (value === 'ai2') {
-      cell.classList.add('ai2');
-    }
-  });
-}
-
-function startGame(mode) {
-  gameMode = mode;
-  gameOver = false;
-  createBoard();
-
-  if (mode === 'ai-vs-ai') {
-    currentPlayer = 'ai1';
-    aiMove('ai1');
-  } else if (mode === 'ai-first') {
-    currentPlayer = 'ai';
-    setTimeout(() => aiMove('ai'), 500);
+  if (playerMode === 'ai-vs-ai') {
+    setTimeout(aiVsAiLoop, 500);
   } else {
     currentPlayer = 'human';
   }
 }
+
+// اجرای بازی AI در مقابل AI
+function aiVsAiLoop() {
+  if (gameOver || playerMode !== 'ai-vs-ai') return;
+  aiMove();
+}
+
+// ریست کردن بورد بازی
+function resetBoard() {
+  board = Array(7).fill().map(() => Array(9).fill(null));
+  drawBoard();
+}
+
+// پیدا کردن سطر خالی برای ستون مشخص
+function getAvailableRow(col) {
+  for (let r = 6; r >= 0; r--) {
+    if (board[r][col] === null) return r;
+  }
+  return -1;
+}
+
+// تابع تست برنده بودن (باید کامل پیاده‌سازی شود)
+function checkWinner(player) {
+  // این فقط اسکلت اولیه است
+  return false;
+}
+
+// تابع نمایش گرافیکی بازی (باید جدا پیاده بشه)
+function drawBoard() {
+  console.log(board);
+}
+
+// مثال دکمه‌های شروع در HTML
+/*
+<button onclick="startGame('human-first')">من اول</button>
+<button onclick="startGame('ai-first')">AI اول</button>
+<button onclick="startGame('ai-vs-ai')">AI vs AI</button>
+*/
